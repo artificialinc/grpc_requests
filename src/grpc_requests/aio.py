@@ -2,10 +2,14 @@ import logging
 import sys
 from enum import Enum
 from functools import partial
-from typing import Any, AsyncIterable, Dict, Iterable, List, NamedTuple, Optional, Tuple, TypeVar
+from typing import (Any, AsyncIterable, Dict, Iterable, List, NamedTuple,
+                    Optional, Tuple, TypeVar)
 
 import grpc
-from google.protobuf import descriptor_pb2, descriptor_pool as _descriptor_pool, symbol_database as _symbol_database, message_factory  # noqa: E501
+from google.protobuf import descriptor_pb2
+from google.protobuf import descriptor_pool as _descriptor_pool  # noqa: E501
+from google.protobuf import message_factory
+from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.descriptor import MethodDescriptor, ServiceDescriptor
 from google.protobuf.descriptor_pb2 import ServiceDescriptorProto
 from google.protobuf.json_format import MessageToDict, ParseDict
@@ -13,6 +17,7 @@ from grpc_reflection.v1alpha import reflection_pb2, reflection_pb2_grpc
 
 from .client import CredentialsInfo
 from .utils import load_data
+
 logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 8):
@@ -55,7 +60,7 @@ def reflection_request(channel, requests):
 
 class BaseAsyncClient:
     def __init__(self, endpoint, symbol_db=None, descriptor_pool=None, channel_options=None, ssl=False,
-                 compression=None, credentials: Optional[CredentialsInfo] = None, **kwargs):
+                 compression=None, credentials: Optional[CredentialsInfo] = None, interceptors=None, **kwargs):
         self.endpoint = endpoint
         self._symbol_db = symbol_db or _symbol_database.Default()
         self._desc_pool = descriptor_pool or _descriptor_pool.Default()
@@ -72,9 +77,13 @@ class BaseAsyncClient:
             self._channel = grpc.aio.secure_channel(endpoint, grpc.ssl_channel_credentials(**_credentials),
                                                     options=self.channel_options,
                                                     compression=self.compression)
+
         else:
             self._channel = grpc.aio.insecure_channel(endpoint, options=self.channel_options,
                                                       compression=self.compression)
+
+        if interceptors:
+            self._channel = grpc.intercept_channel(self._channel, *interceptors)
 
     @property
     def channel(self):
